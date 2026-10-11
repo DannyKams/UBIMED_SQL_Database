@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#102b2b">
+    <title>UBIMED Database | Clinical SQL Lab</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #173332;
+            --muted: #647572;
+            --paper: #f5f5ef;
+            --white: #fffefa;
+            --line: #dce4dc;
+            --green: #145c4b;
+            --green-deep: #102b2b;
+            --mint: #d9f1df;
+            --coral: #ed795e;
+            --yellow: #f2c866;
+            --blue: #dcecf3;
+            --mono: 'DM Mono', Consolas, monospace;
+            --sans: 'DM Sans', sans-serif;
+            --display: 'Manrope', sans-serif;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; background: var(--paper); color: var(--ink); font: 14px var(--sans); }
+        button, textarea, select { font: inherit; }
+        button { cursor: pointer; }
+        .topbar { min-height: 72px; padding: 12px 24px; background: var(--green-deep); color: white; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-mark { width: 38px; height: 38px; background: var(--yellow); color: var(--green-deep); display: grid; place-items: center; border-radius: 11px 11px 11px 3px; font: 800 20px var(--display); }
+        .brand-name { font: 800 16px var(--display); letter-spacing: 0; }
+        .brand-subtitle { color: #b6cbc5; font-size: 11px; margin-top: 2px; }
+        .top-meta { display: flex; align-items: center; gap: 18px; }
+        .data-note { color: #b6cbc5; font-size: 11px; }
+        .status { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid #35504d; border-radius: 20px; color: #f2c866; font-size: 11px; white-space: nowrap; }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .status.ready { color: #9ee2b1; }
+        .workspace { max-width: 1800px; min-height: calc(100vh - 72px); margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 250px minmax(420px, 1fr) minmax(330px, 0.82fr); gap: 16px; }
+        .panel { min-width: 0; background: var(--white); border: 1px solid var(--line); border-radius: 8px; }
+        .left-rail { display: flex; flex-direction: column; gap: 14px; }
+        .rail-panel { overflow: hidden; }
+        .panel-heading { display: flex; justify-content: space-between; align-items: center; padding: 14px 15px; border-bottom: 1px solid var(--line); }
+        .eyebrow { color: var(--muted); font: 500 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
+        .panel-heading h2, .panel-heading h3 { margin: 0; font: 700 13px var(--display); }
+        .count-pill { border-radius: 12px; padding: 3px 7px; background: #eaf3eb; color: var(--green); font: 500 10px var(--mono); }
+        .schema-list { padding: 5px 10px 10px; }
+        .schema-table { border-bottom: 1px solid #edf0eb; }
+        .schema-table:last-child { border-bottom: 0; }
+        .schema-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; padding: 10px 5px; border: 0; background: transparent; color: var(--ink); text-align: left; }
+        .schema-toggle:hover { color: var(--green); }
+        .schema-name { font: 500 12px var(--mono); }
+        .schema-count { color: #8b9995; font: 400 10px var(--mono); }
+        .schema-fields { display: none; padding: 0 5px 9px; }
+        .schema-table.open .schema-fields { display: block; }
+        .field-row { display: flex; gap: 7px; padding: 3px 0; align-items: baseline; font: 10px var(--mono); }
+        .field-key { color: #bd6a38; }
+        .field-type { color: #83918c; }
+        .dataset-card { padding: 13px 14px; background: #e8f2e9; border: 1px solid #d1e5d4; border-radius: 6px; }
+        .dataset-card strong { display: block; font: 700 12px var(--display); }
+        .dataset-card p { margin: 6px 0 0; color: #526660; font-size: 11px; line-height: 1.5; }
+        .dataset-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .stat-chip { padding: 4px 7px; background: rgba(255,255,255,.72); border-radius: 4px; color: #49625a; font: 10px var(--mono); }
+        .center-column, .right-column { min-height: 0; display: flex; flex-direction: column; gap: 14px; }
+        .editor-panel { display: flex; flex-direction: column; min-height: 430px; flex: 0 0 56%; overflow: hidden; }
+        .editor-toolbar { min-height: 52px; padding: 9px 12px 9px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+        .editor-title { display: flex; align-items: center; gap: 10px; }
+        .editor-title h2 { margin: 0; font: 700 13px var(--display); }
+        .shortcut { color: #84918c; font: 10px var(--mono); }
+        .toolbar-actions { display: flex; align-items: center; gap: 7px; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: white; color: var(--ink); font-size: 11px; font-weight: 600; transition: background .15s, transform .15s; }
+        .btn:hover { background: #f0f5ef; }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { cursor: not-allowed; opacity: .55; }
+        .btn-primary { border-color: var(--green); background: var(--green); color: white; }
+        .btn-primary:hover { background: #0d493b; }
+        .btn-warn { border-color: #efd7b5; color: #9b6025; }
+        .icon { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+        .editor-wrap { position: relative; display: flex; flex: 1; min-height: 0; background: #142d2d; }
+        .line-gutter { width: 43px; padding: 17px 10px 17px 0; flex: 0 0 43px; overflow: hidden; color: #68817b; background: #112727; text-align: right; white-space: pre; user-select: none; font: 12px/1.75 var(--mono); }
+        #sql-input { width: 100%; height: 100%; min-height: 280px; padding: 17px 18px 17px 10px; border: 0; outline: 0; resize: none; background: #142d2d; color: #e9f0e7; tab-size: 2; font: 12px/1.75 var(--mono); caret-color: var(--yellow); }
+        #sql-input::selection { background: #32685a; }
+        .editor-footer { padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #28423e; background: #142d2d; color: #8da49b; font: 10px var(--mono); }
+        .bottom-editor-actions { display: flex; gap: 7px; }
+        .bottom-editor-actions .btn { min-height: 28px; padding: 0 8px; font-size: 10px; }
+        .exercise-panel { flex: 1; min-height: 230px; overflow: hidden; display: flex; flex-direction: column; }
+        .exercise-controls { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--line); }
+        .exercise-controls select { min-width: 0; flex: 1; height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 4px; background: white; color: var(--ink); font-size: 11px; }
+        .exercise-progress { color: var(--muted); font: 10px var(--mono); white-space: nowrap; }
+        .exercise-body { flex: 1; overflow-y: auto; padding: 15px 16px; }
+        .exercise-kicker { display: flex; gap: 7px; align-items: center; color: var(--green); font: 500 10px var(--mono); text-transform: uppercase; }
+        .difficulty { padding: 3px 6px; background: #f9efd2; border-radius: 3px; color: #8a6520; }
+        .exercise-body h3 { margin: 9px 0 6px; font: 700 16px var(--display); }
+        .exercise-body p { margin: 0; color: #52635e; font-size: 12px; line-height: 1.6; }
+        .learn-box { display: flex; gap: 9px; margin-top: 12px; padding: 10px 11px; border-left: 3px solid var(--yellow); background: #fbf7e9; color: #5d5844; font-size: 11px; line-height: 1.5; }
+        .learn-box b { display: block; margin-bottom: 2px; color: #544b2c; font-size: 10px; text-transform: uppercase; }
+        .exercise-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 13px; border-top: 1px solid var(--line); }
+        .exercise-buttons { display: flex; gap: 7px; }
+        .completion { color: var(--muted); font-size: 10px; }
+        .right-column { min-height: 0; }
+        .results-panel { flex: 1; min-height: 310px; display: flex; flex-direction: column; overflow: hidden; }
+        .results-heading { min-height: 52px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); }
+        .results-heading h2 { margin: 0; font: 700 13px var(--display); }
+        .result-meta { color: var(--muted); font: 10px var(--mono); }
+        .result-message { margin: 14px; padding: 13px; border-radius: 5px; background: #eef4ef; color: #496158; font-size: 12px; line-height: 1.55; }
+        .result-message.error { background: #fff0eb; color: #a34e3b; }
+        .result-message.success { background: #e4f5e7; color: #286143; }
+        .result-sets { min-height: 0; flex: 1; overflow: auto; padding: 13px; }
+        .result-set { margin-bottom: 20px; }
+        .result-set-title { margin: 0 0 7px; color: var(--muted); font: 10px var(--mono); }
+        .table-scroll { width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; white-space: nowrap; }
+        th { position: sticky; top: 0; padding: 9px 10px; background: #edf2ec; color: #53635e; text-align: left; font: 500 10px var(--mono); }
+        td { padding: 8px 10px; border-top: 1px solid #edf0eb; color: #30413c; }
+        tbody tr:hover { background: #fafbf7; }
+        .null-value { color: #9ba7a2; font-style: italic; }
+        .bottom-note { padding: 9px 14px; border-top: 1px solid var(--line); color: #7d8985; font-size: 10px; }
+        .toast { position: fixed; right: 22px; bottom: 22px; z-index: 5; max-width: 330px; padding: 12px 15px; border-radius: 6px; background: var(--green-deep); color: white; box-shadow: 0 10px 35px #102b2b30; opacity: 0; transform: translateY(9px); pointer-events: none; transition: .2s ease; font-size: 12px; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .empty-state { padding: 30px 14px; color: #87938e; text-align: center; font-size: 12px; }
+        @media (min-width: 1450px) { .workspace { grid-template-columns: 270px minmax(500px, 1fr) minmax(400px, .82fr); } }
+        @media (max-width: 1080px) { .workspace { grid-template-columns: 220px minmax(0, 1fr); } .right-column { grid-column: 2; grid-row: 2; min-height: 500px; } .center-column { grid-column: 2; grid-row: 1; } .left-rail { grid-row: 1 / span 2; } }
+        @media (max-width: 700px) {
+            .topbar { padding: 12px 15px; align-items: flex-start; }
+            .top-meta { align-items: flex-end; flex-direction: column-reverse; gap: 5px; }
+            .data-note { display: none; }
+            .workspace { display: flex; flex-direction: column; padding: 11px; gap: 11px; }
+            .left-rail { display: contents; }
+            .dataset-card { order: 0; }
+            .rail-panel { order: 1; max-height: 260px; }
+            .center-column { order: 2; }
+            .right-column { order: 3; min-height: 440px; }
+            .editor-panel { min-height: 430px; flex-basis: auto; }
+            .exercise-panel { min-height: 270px; }
+            .editor-toolbar { align-items: flex-start; }
+            .shortcut { display: none; }
+            .toolbar-actions { gap: 5px; }
+            .toolbar-actions .btn { padding: 0 8px; }
+            .toolbar-actions .btn span { display: none; }
+            .schema-list { display: grid; grid-template-columns: 1fr 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true">U</div>
+            <div><div class="brand-name">UBIMED Database</div><div class="brand-subtitle">A clinical SQL lab from UBIMED's digital health tools</div></div>
+        </div>
+        <div class="top-meta">
+            <div class="data-note">Entirely fictional, locally generated practice data</div>
+            <div class="status" id="db-status"><span class="status-dot"></span><span>Building dataset...</span></div>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <aside class="left-rail">
+            <section class="panel rail-panel">
+                <div class="panel-heading"><div><div class="eyebrow">Explore</div><h2>Database schema</h2></div><span class="count-pill" id="table-count">6 tables</span></div>
+                <div class="schema-list" id="schema-list"><div class="empty-state">Waiting for database...</div></div>
+            </section>
+            <section class="dataset-card">
+                <strong>Practice dataset</strong>
+                <p>Generated clinical and demographic records. No real patient data is used.</p>
+                <div class="dataset-stats" id="dataset-stats"><span class="stat-chip">Loading records</span></div>
+            </section>
+        </aside>
+
+        <section class="center-column">
+            <section class="panel editor-panel">
+                <div class="editor-toolbar">
+                    <div class="editor-title"><h2>Query editor</h2><span class="shortcut">CTRL / CMD + ENTER</span></div>
+                    <div class="toolbar-actions">
+                        <button class="btn" id="clear-btn" title="Clear editor">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/></svg><span>Clear</span>
+                        </button>
+                        <button class="btn btn-warn" id="reset-db-btn" title="Restore the original practice database">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8m0-5v5h5"/></svg><span>Reset data</span>
+                        </button>
+                        <button class="btn btn-primary" id="run-btn" disabled title="Run SQL (Ctrl/Cmd + Enter)">
+                            <svg class="icon" viewBox="0 0 24 24"><path d="m9 6 10 6-10 6z"/></svg><span>Run query</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="editor-wrap">
+                    <div class="line-gutter" id="line-gutter">1</div>
+                    <textarea id="sql-input" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="SQL query editor" placeholder="Write a SQL query...">SELECT *
+FROM patients
+LIMIT 10;</textarea>
+                </div>
+                <div class="editor-footer"><span id="editor-hint">SQLite · multiple statements supported</span><div class="bottom-editor-actions"><button class="btn" id="load-default-btn">Load starter query</button><button class="btn" id="copy-btn">Copy query</button></div></div>
+            </section>
+
+            <section class="panel exercise-panel">
+                <div class="panel-heading"><div><div class="eyebrow">Learn by doing</div><h2>Practice exercises</h2></div><span class="count-pill" id="exercise-count">0 / 24 complete</span></div>
+                <div class="exercise-controls">
+                    <select id="exercise-select" aria-label="Choose an exercise"><option>Loading exercises...</option></select>
+                    <span class="exercise-progress" id="exercise-progress">1 of 24</span>
+                </div>
+                <div class="exercise-body" id="exercise-body"><div class="empty-state">Exercises are loading...</div></div>
+                <div class="exercise-footer">
+                    <span class="completion" id="completion-message">Run your solution, then check it.</span>
+                    <div class="exercise-buttons"><button class="btn" id="hint-btn" title="Show a hint">Hint</button><button class="btn btn-primary" id="check-btn" disabled>Check answer</button></div>
+                </div>
+            </section>
+        </section>
+
+        <section class="right-column">
+            <section class="panel results-panel">
+                <div class="results-heading"><h2>Query results</h2><span class="result-meta" id="result-meta">Ready when you are</span></div>
+                <div class="result-sets" id="results-container"><div class="empty-state">Run a query to inspect rows, aggregates, and schema changes.</div></div>
+                <div class="bottom-note">Results are held in this browser session and reset with the database.</div>
+            </section>
+        </section>
+    </main>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+        let db;
+        let SQL;
+        const runBtn = document.getElementById('run-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const sqlInput = document.getElementById('sql-input');
+        const resultsContainer = document.getElementById('results-container');
+        const dbStatus = document.getElementById('db-status');
+        const schemaList = document.getElementById('schema-list');
+        const exercises = [
+            { title: 'Meet the patient table', topic: 'SELECT', level: 'STARTER', prompt: 'Show the first 12 patient records, including every column.', lesson: 'SELECT chooses columns and FROM chooses the table. LIMIT is handy for exploring a large dataset.', hint: 'Start with SELECT *, then FROM patients and LIMIT 12.', solution: 'SELECT * FROM patients LIMIT 12;' },
+            { title: 'Choose useful columns', topic: 'SELECT', level: 'STARTER', prompt: 'List each patient\'s record_id, age, gender, and district. Return 20 rows.', lesson: 'Listing column names instead of * keeps a result focused and makes the output easier to read.', hint: 'Put the four column names after SELECT, separated by commas.', solution: 'SELECT record_id, age, gender, district FROM patients LIMIT 20;' },
+            { title: 'Patients in one district', topic: 'WHERE', level: 'STARTER', prompt: 'Find all patients enrolled in Kambia. Return record_id, age, and enrollment_date.', lesson: 'WHERE filters rows before they are returned. Text values need single quotes.', hint: 'Use WHERE district = \'Kambia\'.', solution: "SELECT record_id, age, enrollment_date FROM patients WHERE district = 'Kambia';" },
+            { title: 'Age range', topic: 'WHERE · AND', level: 'STARTER', prompt: 'Find patients aged 30 through 45 inclusive. Show their ID and age.', lesson: 'Combine conditions with AND. BETWEEN includes both endpoint values.', hint: 'Try age BETWEEN 30 AND 45.', solution: 'SELECT record_id, age FROM patients WHERE age BETWEEN 30 AND 45;' },
+            { title: 'Several districts', topic: 'WHERE · IN', level: 'STARTER', prompt: 'Find patients from Bombali, Kambia, or Port Loko. Show ID and district.', lesson: 'IN is a compact alternative to several OR comparisons.', hint: "Use district IN ('Bombali', 'Kambia', 'Port Loko').", solution: "SELECT record_id, district FROM patients WHERE district IN ('Bombali', 'Kambia', 'Port Loko');" },
+            { title: 'Newest enrollments', topic: 'ORDER BY', level: 'STARTER', prompt: 'Return the 10 most recently enrolled patients, newest first.', lesson: 'ORDER BY sorts a result. DESC reverses the default ascending order.', hint: 'Order enrollment_date DESC, then use LIMIT 10.', solution: 'SELECT record_id, enrollment_date FROM patients ORDER BY enrollment_date DESC LIMIT 10;' },
+            { title: 'Search a diagnosis', topic: 'LIKE', level: 'STARTER', prompt: 'Find visits where the diagnosis contains the word malaria. Show visit_id and diagnosis.', lesson: 'LIKE performs pattern matching; % matches any number of characters.', hint: "Use diagnosis LIKE '%malaria%' (SQLite LIKE is case-insensitive for ASCII text).", solution: "SELECT visit_id, diagnosis FROM visits WHERE diagnosis LIKE '%malaria%';" },
+            { title: 'Count the cohort', topic: 'COUNT', level: 'STARTER', prompt: 'Count how many patients are in the patients table. Name the result patient_count.', lesson: 'COUNT(*) counts rows, and AS gives a result column a readable label.', hint: 'SELECT COUNT(*) AS patient_count FROM patients.', solution: 'SELECT COUNT(*) AS patient_count FROM patients;' },
+            { title: 'Age profile', topic: 'AVG · MIN · MAX', level: 'PRACTICE', prompt: 'Calculate the average, youngest, and oldest patient age.', lesson: 'Aggregate functions summarize many rows into a value. ROUND can make averages easier to scan.', hint: 'Use ROUND(AVG(age), 1), MIN(age), and MAX(age).', solution: 'SELECT ROUND(AVG(age), 1) AS average_age, MIN(age) AS youngest, MAX(age) AS oldest FROM patients;' },
+            { title: 'Patients per district', topic: 'GROUP BY', level: 'PRACTICE', prompt: 'Count patients in each district and sort from the largest group to the smallest.', lesson: 'GROUP BY makes one group per district. Every selected value must be aggregated or included in GROUP BY.', hint: 'Group by district; sort COUNT(*) DESC.', solution: 'SELECT district, COUNT(*) AS patient_count FROM patients GROUP BY district ORDER BY patient_count DESC;' },
+            { title: 'Filter groups', topic: 'HAVING', level: 'PRACTICE', prompt: 'Show districts with at least 50 enrolled patients and their counts.', lesson: 'WHERE filters rows before grouping; HAVING filters groups after aggregation.', hint: 'Group by district and add HAVING COUNT(*) >= 50.', solution: 'SELECT district, COUNT(*) AS patient_count FROM patients GROUP BY district HAVING COUNT(*) >= 50 ORDER BY patient_count DESC;' },
+            { title: 'Lab result categories', topic: 'GROUP BY', level: 'PRACTICE', prompt: 'Count lab results by test_name and result_flag.', lesson: 'Grouping on multiple columns creates one group for each unique combination.', hint: 'Select test_name and result_flag, count rows, and group by both fields.', solution: 'SELECT test_name, result_flag, COUNT(*) AS total FROM lab_results GROUP BY test_name, result_flag ORDER BY test_name, result_flag;' },
+            { title: 'Patients with a visit', topic: 'INNER JOIN', level: 'PRACTICE', prompt: 'Show 20 visits with each patient\'s district. Include visit_id, record_id, district, and diagnosis.', lesson: 'An INNER JOIN keeps rows with a matching key on both sides. Qualify repeated column names with table aliases.', hint: 'Join visits v to patients p on v.record_id = p.record_id.', solution: 'SELECT v.visit_id, v.record_id, p.district, v.diagnosis FROM visits AS v INNER JOIN patients AS p ON v.record_id = p.record_id LIMIT 20;' },
+            { title: 'Keep patients without labs', topic: 'LEFT JOIN', level: 'PRACTICE', prompt: 'Show 30 patients and their most recently collected lab date when present. Include patients with no lab result.', lesson: 'LEFT JOIN preserves every row from its left table. Unmatched columns are NULL.', hint: 'Start from patients, LEFT JOIN lab_results, select p.record_id and l.test_date.', solution: 'SELECT p.record_id, MAX(l.test_date) AS latest_lab_date FROM patients AS p LEFT JOIN lab_results AS l ON p.record_id = l.record_id GROUP BY p.record_id ORDER BY p.record_id LIMIT 30;' },
+            { title: 'Clinic workload', topic: 'JOIN · GROUP BY', level: 'PRACTICE', prompt: 'Count visits per clinic, showing the clinic name and visit count, highest count first.', lesson: 'Joining lookup tables adds context to IDs. Aggregate after joining to summarize the matched rows.', hint: 'Join visits to clinics using clinic_id, then group by clinic_name.', solution: 'SELECT c.clinic_name, COUNT(v.visit_id) AS visit_count FROM clinics AS c LEFT JOIN visits AS v ON c.clinic_id = v.clinic_id GROUP BY c.clinic_id, c.clinic_name ORDER BY visit_count DESC;' },
+            { title: 'Flag abnormal results', topic: 'CASE', level: 'PRACTICE', prompt: 'For 25 lab results, display test_name, result_value, and a readable label: Abnormal or In range.', lesson: 'CASE creates a value based on conditions, much like if/else in a programming language.', hint: "CASE WHEN result_flag = 'Abnormal' THEN 'Abnormal' ELSE 'In range' END.", solution: "SELECT test_name, result_value, CASE WHEN result_flag = 'Abnormal' THEN 'Abnormal' ELSE 'In range' END AS result_label FROM lab_results LIMIT 25;" },
+            { title: 'Visits per patient', topic: 'SUBQUERY', level: 'PRACTICE', prompt: 'Find patients with more visits than the average patient. Show record_id and visit_count.', lesson: 'A subquery can calculate a benchmark that an outer query compares each group against.', hint: 'Group visits by record_id in a subquery, then compare COUNT(*) with the average of those counts.', solution: 'SELECT record_id, COUNT(*) AS visit_count FROM visits GROUP BY record_id HAVING COUNT(*) > (SELECT AVG(visit_count) FROM (SELECT COUNT(*) AS visit_count FROM visits GROUP BY record_id));' },
+            { title: 'Latest test per patient', topic: 'CORRELATED SUBQUERY', level: 'CHALLENGE', prompt: 'Return each patient\'s latest lab result date and test name. Patients with no labs can be omitted.', lesson: 'A correlated subquery can refer to a row in the outer query. Here it finds the maximum date for that patient.', hint: 'Filter lab_results where test_date equals a subquery MAX(test_date) correlated by record_id.', solution: 'SELECT l.record_id, l.test_name, l.test_date FROM lab_results AS l WHERE l.test_date = (SELECT MAX(l2.test_date) FROM lab_results AS l2 WHERE l2.record_id = l.record_id) ORDER BY l.record_id;' },
+            { title: 'Clinic summary with a CTE', topic: 'CTE', level: 'CHALLENGE', prompt: 'Use a WITH clause to count visits by clinic, then show clinic names and counts.', lesson: 'A CTE names a temporary result for one query. It can make multi-step SQL easier to reason about.', hint: 'Create visit_counts with clinic_id and COUNT(*), then join it to clinics.', solution: 'WITH visit_counts AS (SELECT clinic_id, COUNT(*) AS total FROM visits GROUP BY clinic_id) SELECT c.clinic_name, COALESCE(vc.total, 0) AS visit_count FROM clinics AS c LEFT JOIN visit_counts AS vc ON c.clinic_id = vc.clinic_id ORDER BY visit_count DESC;' },
+            { title: 'Add a patient field', topic: 'ALTER TABLE', level: 'CHALLENGE', kind: 'column', table: 'patients', column: 'risk_band', prompt: 'Alter patients to add a TEXT column named risk_band.', lesson: 'ALTER TABLE changes a table definition. New columns on existing rows start as NULL unless a default is specified.', hint: 'ALTER TABLE patients ADD COLUMN risk_band TEXT;', solution: 'ALTER TABLE patients ADD COLUMN risk_band TEXT;' },
+            { title: 'Add a visit measurement', topic: 'ALTER TABLE', level: 'CHALLENGE', kind: 'column', table: 'visits', column: 'pain_score', prompt: 'Add an INTEGER column named pain_score to visits.', lesson: 'SQLite supports adding a column with ALTER TABLE ... ADD COLUMN. Refreshing the schema shows the new field.', hint: 'ALTER TABLE visits ADD COLUMN pain_score INTEGER;', solution: 'ALTER TABLE visits ADD COLUMN pain_score INTEGER;' },
+            { title: 'Create a lab lookup index', topic: 'CREATE INDEX', level: 'CHALLENGE', kind: 'index', table: 'lab_results', column: 'test_name', prompt: 'Create an index named idx_lab_test_name on lab_results(test_name).', lesson: 'An index can speed up lookups and filtering, with a small storage and write-cost tradeoff.', hint: 'CREATE INDEX idx_lab_test_name ON lab_results(test_name);', solution: 'CREATE INDEX idx_lab_test_name ON lab_results(test_name);' },
+            { title: 'Inspect table structure', topic: 'PRAGMA', level: 'CHALLENGE', prompt: 'Use SQLite PRAGMA to inspect the columns in lab_results.', lesson: 'SQLite exposes metadata through PRAGMA statements. This is useful when exploring an unfamiliar schema.', hint: 'Run PRAGMA table_info(lab_results).', solution: 'PRAGMA table_info(lab_results);' },
+            { title: 'Patients above the age average', topic: 'SUBQUERY', level: 'CHALLENGE', prompt: 'Find patients older than the overall average age. Show record_id and age, oldest first.', lesson: 'A scalar subquery returns one value that the outer query can use in a WHERE condition.', hint: 'Compare age to (SELECT AVG(age) FROM patients).', solution: 'SELECT record_id, age FROM patients WHERE age > (SELECT AVG(age) FROM patients) ORDER BY age DESC, record_id;' },
+            { title: 'Combine visit and lab signals', topic: 'JOIN · HAVING', level: 'CHALLENGE', prompt: 'Find patients with at least 2 lab results and at least 2 visits. Show their ID and both counts.', lesson: 'Joining two one-to-many tables can multiply rows. Aggregate each table first in CTEs, then join the summaries.', hint: 'Use separate CTEs for lab counts and visit counts, then join on record_id.', solution: 'WITH lab_counts AS (SELECT record_id, COUNT(*) AS labs FROM lab_results GROUP BY record_id), visit_counts AS (SELECT record_id, COUNT(*) AS visits FROM visits GROUP BY record_id) SELECT l.record_id, l.labs, v.visits FROM lab_counts AS l INNER JOIN visit_counts AS v ON l.record_id = v.record_id WHERE l.labs >= 2 AND v.visits >= 2 ORDER BY l.record_id;' },
+            { title: 'Safe schema reset', topic: 'RESET', level: 'CHALLENGE', prompt: 'Use the Reset data button to restore the original schema and generated records, then run SELECT COUNT(*) FROM patients.', lesson: 'Schema edits are real within this browser database. Reset data rebuilds the original practice dataset and clears your changes.', hint: 'Reset data first. Then SELECT COUNT(*) AS patient_count FROM patients; the expected count is 600.', solution: 'SELECT COUNT(*) AS patient_count FROM patients;', kind: 'count', expected: 600 }
+        ];
+        const completed = new Set();
+        let currentExercise = 0;
+        let toastTimer;
+
+        const districts = ['Bombali', 'Kambia', 'Port Loko', 'Tonkolili', 'Koinadugu', 'Bo', 'Kenema', 'Western Area'];
+        const clinicNames = ['Makeni Regional', 'Kambia Government Hospital', 'Lunsar Community Clinic', 'Magburaka District Hospital', 'Kabala Health Centre', 'Bo Government Hospital', 'Kenema Teaching Hospital', 'Waterloo Community Clinic'];
+        const genders = ['F', 'M', 'F', 'F', 'M', 'F'];
+        const diagnoses = ['Malaria', 'Antenatal care', 'Respiratory infection', 'Hypertension', 'Diabetes follow-up', 'Routine wellness', 'Gastroenteritis', 'Postnatal care', 'Anaemia', 'Musculoskeletal pain'];
+        const tests = [
+            { name: 'Haemoglobin', unit: 'g/dL', low: 12, high: 17, min: 8, max: 19 },
+            { name: 'Glucose', unit: 'mmol/L', low: 3.9, high: 7.8, min: 2.5, max: 13 },
+            { name: 'White blood cells', unit: '10^9/L', low: 4, high: 11, min: 2, max: 16 },
+            { name: 'Creatinine', unit: 'umol/L', low: 45, high: 110, min: 30, max: 180 },
+            { name: 'HIV screening', unit: 'status', low: 0, high: 0, min: 0, max: 1 },
+            { name: 'Malaria RDT', unit: 'status', low: 0, high: 0, min: 0, max: 1 }
+        ];
+        const medications = ['Amoxicillin', 'Artemether-lumefantrine', 'Iron and folic acid', 'Metformin', 'Paracetamol', 'Amlodipine', 'Oral rehydration salts', 'Prenatal multivitamin'];
+
+        function dateFromDays(offset) {
+            const date = new Date(Date.UTC(2024, 0, 1) + offset * 86400000);
+            return date.toISOString().slice(0, 10);
+        }
+
+        function buildDatabase() {
+            db = new SQL.Database();
+            db.run('PRAGMA foreign_keys = ON;');
+            db.run(`
+                CREATE TABLE clinics (clinic_id TEXT PRIMARY KEY, clinic_name TEXT NOT NULL, district TEXT NOT NULL, opened_year INTEGER);
+                CREATE TABLE patients (record_id TEXT PRIMARY KEY, age INTEGER NOT NULL, gender TEXT NOT NULL, district TEXT NOT NULL, enrollment_date DATE NOT NULL, pregnancy_status TEXT, insurance_type TEXT);
+                CREATE TABLE visits (visit_id TEXT PRIMARY KEY, record_id TEXT NOT NULL REFERENCES patients(record_id), clinic_id TEXT NOT NULL REFERENCES clinics(clinic_id), visit_date DATE NOT NULL, visit_type TEXT NOT NULL, diagnosis TEXT NOT NULL, outcome TEXT NOT NULL);
+                CREATE TABLE lab_results (lab_id TEXT PRIMARY KEY, record_id TEXT NOT NULL REFERENCES patients(record_id), visit_id TEXT REFERENCES visits(visit_id), test_name TEXT NOT NULL, result_value REAL, unit TEXT, reference_range TEXT, result_flag TEXT NOT NULL, test_date DATE NOT NULL);
+                CREATE TABLE medications (medication_id INTEGER PRIMARY KEY, medication_name TEXT NOT NULL, category TEXT NOT NULL, standard_dose TEXT NOT NULL);
+                CREATE TABLE prescriptions (prescription_id TEXT PRIMARY KEY, record_id TEXT NOT NULL REFERENCES patients(record_id), visit_id TEXT NOT NULL REFERENCES visits(visit_id), medication_id INTEGER NOT NULL REFERENCES medications(medication_id), start_date DATE NOT NULL, days_supply INTEGER NOT NULL, status TEXT NOT NULL);
+            `);
+            const clinicInsert = db.prepare('INSERT INTO clinics VALUES (?, ?, ?, ?)');
+            clinicNames.forEach((name, index) => clinicInsert.run([`CL-${String(index + 1).padStart(2, '0')}`, name, districts[index], 1985 + ((index * 7) % 35)]));
+            clinicInsert.free();
+            const medicationInsert = db.prepare('INSERT INTO medications VALUES (?, ?, ?, ?)');
+            medications.forEach((name, index) => medicationInsert.run([index + 1, name, index < 3 ? 'Essential medicines' : 'Outpatient care', ['500 mg', '20/120 mg', '1 tablet daily', '500 mg', '500 mg', '5 mg', '1 sachet', '1 tablet daily'][index]]));
+            medicationInsert.free();
+
+            const patientInsert = db.prepare('INSERT INTO patients VALUES (?, ?, ?, ?, ?, ?, ?)');
+            for (let i = 1; i <= 600; i++) {
+                const recordId = `PT-${String(i).padStart(4, '0')}`;
+                const gender = genders[(i * 7 + Math.floor(i / 9)) % genders.length];
+                const pregnancy = gender === 'F' && i % 5 === 0 ? 'Pregnant' : gender === 'F' && i % 7 === 0 ? 'Postpartum' : 'Not applicable';
+                patientInsert.run([recordId, 18 + ((i * 17) % 63), gender, districts[(i * 13 + Math.floor(i / 8)) % districts.length], dateFromDays((i * 11) % 900), pregnancy, ['Community', 'National scheme', 'Private', 'None'][i % 4]]);
+            }
+            patientInsert.free();
+
+            const visitInsert = db.prepare('INSERT INTO visits VALUES (?, ?, ?, ?, ?, ?, ?)');
+            const labInsert = db.prepare('INSERT INTO lab_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+            const prescriptionInsert = db.prepare('INSERT INTO prescriptions VALUES (?, ?, ?, ?, ?, ?, ?)');
+            let visitNumber = 0;
+            let labNumber = 0;
+            let prescriptionNumber = 0;
+            for (let i = 1; i <= 600; i++) {
+                const recordId = `PT-${String(i).padStart(4, '0')}`;
+                const visitCount = 1 + ((i * 7) % 4);
+                for (let j = 0; j < visitCount; j++) {
+                    visitNumber++;
+                    const visitId = `VIS-${String(visitNumber).padStart(5, '0')}`;
+                    const clinicId = `CL-${String(1 + ((i + j * 3) % clinicNames.length)).padStart(2, '0')}`;
+                    const day = (i * 11 + j * 43) % 900;
+                    const diagnosis = diagnoses[(i * 3 + j * 7) % diagnoses.length];
+                    visitInsert.run([visitId, recordId, clinicId, dateFromDays(day), ['New consultation', 'Follow-up', 'Screening', 'Urgent care'][((i + j) * 3) % 4], diagnosis, ['Discharged', 'Follow-up advised', 'Referred', 'Under observation'][(i + j * 2) % 4]]);
+                    if ((i + j) % 3 !== 0) {
+                        const testCount = 1 + ((i + j) % 3 === 0 ? 1 : 0);
+                        for (let k = 0; k < testCount; k++) {
+                            labNumber++;
+                            const test = tests[(i + j * 2 + k * 3) % tests.length];
+                            let value = test.min + ((i * 19 + j * 13 + k * 31) % Math.round((test.max - test.min) * 10)) / 10;
+                            let flag;
+                            if (test.name.includes('screening') || test.name.includes('RDT')) {
+                                value = (i + j + k) % 13 === 0 ? 1 : 0;
+                                flag = value === 1 ? 'Positive' : 'Negative';
+                            } else {
+                                value = Math.round(value * 10) / 10;
+                                flag = value < test.low || value > test.high ? 'Abnormal' : 'Normal';
+                            }
+                            const range = test.name.includes('screening') || test.name.includes('RDT') ? 'Negative' : `${test.low}-${test.high}`;
+                            labInsert.run([`LAB-${String(labNumber).padStart(5, '0')}`, recordId, visitId, test.name, value, test.unit, range, flag, dateFromDays(day + ((i + k) % 12))]);
+                        }
+                    }
+                    if ((i + j) % 4 === 0) {
+                        prescriptionNumber++;
+                        prescriptionInsert.run([`RX-${String(prescriptionNumber).padStart(5, '0')}`, recordId, visitId, 1 + ((i + j) % medications.length), dateFromDays(day), 3 + ((i * j + 14) % 28), ['Active', 'Completed', 'Discontinued'][((i + j) * 5) % 3]]);
+                    }
+                }
+            }
+            visitInsert.free();
+            labInsert.free();
+            prescriptionInsert.free();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2400);
+        }
+
+        function setStatus(text, ready) {
+            dbStatus.innerHTML = '';
+            const dot = document.createElement('span');
+            dot.className = 'status-dot';
+            const label = document.createElement('span');
+            label.textContent = text;
+            dbStatus.append(dot, label);
+            dbStatus.classList.toggle('ready', ready);
+        }
+
+        function refreshSchema() {
+            if (!db) return;
+            const tableRows = db.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY CASE name WHEN 'clinics' THEN 1 WHEN 'patients' THEN 2 WHEN 'visits' THEN 3 WHEN 'lab_results' THEN 4 WHEN 'medications' THEN 5 WHEN 'prescriptions' THEN 6 ELSE 99 END, name")[0]?.values || [];
+            document.getElementById('table-count').textContent = `${tableRows.length} tables`;
+            schemaList.replaceChildren();
+            tableRows.forEach(([tableName]) => {
+                const countResult = db.exec(`SELECT COUNT(*) FROM "${String(tableName).replaceAll('"', '""')}"`);
+                const count = countResult[0]?.values[0][0] ?? 0;
+                const fields = db.exec(`PRAGMA table_info("${String(tableName).replaceAll('"', '""')}")`)[0]?.values || [];
+                const section = document.createElement('div');
+                section.className = 'schema-table';
+                const toggle = document.createElement('button');
+                toggle.className = 'schema-toggle';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', 'false');
+                const name = document.createElement('span');
+                name.className = 'schema-name';
+                name.textContent = tableName;
+                const rowCount = document.createElement('span');
+                rowCount.className = 'schema-count';
+                rowCount.textContent = `${count.toLocaleString()} rows`;
+                toggle.append(name, rowCount);
+                const fieldList = document.createElement('div');
+                fieldList.className = 'schema-fields';
+                fields.forEach(field => {
+                    const row = document.createElement('div');
+                    row.className = 'field-row';
+                    const fieldName = document.createElement('span');
+                    fieldName.className = field[5] ? 'field-key' : '';
+                    fieldName.textContent = field[1];
+                    const fieldType = document.createElement('span');
+                    fieldType.className = 'field-type';
+                    fieldType.textContent = field[2] || 'ANY';
+                    row.append(fieldName, fieldType);
+                    fieldList.append(row);
+                });
+                toggle.addEventListener('click', () => {
+                    const open = section.classList.toggle('open');
+                    toggle.setAttribute('aria-expanded', String(open));
+                });
+                section.append(toggle, fieldList);
+                schemaList.append(section);
+            });
+            const patientCount = db.exec('SELECT COUNT(*) FROM patients')[0].values[0][0];
+            const visitCount = db.exec('SELECT COUNT(*) FROM visits')[0].values[0][0];
+            const labCount = db.exec('SELECT COUNT(*) FROM lab_results')[0].values[0][0];
+            document.getElementById('dataset-stats').innerHTML = '';
+            [
+                `${patientCount} patients`,
+                `${visitCount} visits`,
+                `${labCount} lab results`,
+                `${tableRows.length} tables`
+            ].forEach(text => {
+                const chip = document.createElement('span');
+                chip.className = 'stat-chip';
+                chip.textContent = text;
+                document.getElementById('dataset-stats').append(chip);
+            });
+        }
+
+        function updateGutter() {
+            const lineCount = sqlInput.value.split('\n').length;
+            document.getElementById('line-gutter').textContent = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n');
+        }
+
+        function appendSafeTable(container, result, index) {
+            const wrapper = document.createElement('section');
+            wrapper.className = 'result-set';
+            if (result.values.length > 1000) {
+                const cap = document.createElement('p');
+                cap.className = 'result-message';
+                cap.textContent = 'Showing the first 1,000 rows to keep the browser responsive.';
+                wrapper.append(cap);
+            }
+            if (index > 0) {
+                const title = document.createElement('p');
+                title.className = 'result-set-title';
+                title.textContent = `Result set ${index + 1}`;
+                wrapper.append(title);
+            }
+            const scroll = document.createElement('div');
+            scroll.className = 'table-scroll';
+            const table = document.createElement('table');
+            const head = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            result.columns.forEach(column => {
+                const cell = document.createElement('th');
+                cell.textContent = column;
+                headRow.append(cell);
+            });
+            head.append(headRow);
+            const body = document.createElement('tbody');
+            result.values.slice(0, 1000).forEach(values => {
+                const row = document.createElement('tr');
+                values.forEach(value => {
+                    const cell = document.createElement('td');
+                    if (value === null) {
+                        cell.className = 'null-value';
+                        cell.textContent = 'NULL';
+                    } else {
+                        cell.textContent = String(value);
+                    }
+                    row.append(cell);
+                });
+                body.append(row);
+            });
+            table.append(head, body);
+            scroll.append(table);
+            wrapper.append(scroll);
+            const rowCount = document.createElement('p');
+            rowCount.className = 'result-set-title';
+            rowCount.textContent = `${result.values.length.toLocaleString()} row(s) returned`;
+            wrapper.append(rowCount);
+            container.append(wrapper);
+        }
+
+        function runQuery(options = {}) {
+            if (!db) return null;
+            const query = sqlInput.value.trim();
+            if (!query) {
+                showToast('Write a query before running it.');
+                return null;
+            }
+            try {
+                const results = db.exec(query);
+                resultsContainer.replaceChildren();
+                const resultSets = results.filter(result => result.columns && result.columns.length);
+                if (!resultSets.length) {
+                    const message = document.createElement('div');
+                    message.className = 'result-message success';
+                    message.textContent = 'Query executed successfully. This statement did not return rows.';
+                    resultsContainer.append(message);
+                    document.getElementById('result-meta').textContent = 'Statement complete';
+                } else {
+                    resultSets.forEach((result, index) => appendSafeTable(resultsContainer, result, index));
+                    const totalRows = resultSets.reduce((total, result) => total + result.values.length, 0);
+                    document.getElementById('result-meta').textContent = `${resultSets.length} result set${resultSets.length === 1 ? '' : 's'} · ${totalRows.toLocaleString()} rows`;
+                }
+                refreshSchema();
+                if (!options.silent) document.getElementById('completion-message').textContent = 'Query ran successfully. Check your answer when ready.';
+                return { results, error: null };
+            } catch (error) {
+                resultsContainer.replaceChildren();
+                const message = document.createElement('div');
+                message.className = 'result-message error';
+                message.textContent = `SQL error: ${error.message}`;
+                resultsContainer.append(message);
+                document.getElementById('result-meta').textContent = 'Query needs attention';
+                return { results: null, error };
+            }
+        }
+
+        function normalizeRows(resultSets) {
+            return resultSets.map(result => ({
+                columns: result.columns,
+                rows: result.values.map(row => JSON.stringify(row)).sort()
+            }));
+        }
+
+        function getTableColumns(tableName) {
+            return (db.exec(`PRAGMA table_info("${tableName}")`)[0]?.values || []).map(row => row[1]);
+        }
+
+        function checkExercise() {
+            const exercise = exercises[currentExercise];
+            if (exercise.kind === 'column') {
+                if (getTableColumns(exercise.table).includes(exercise.column)) {
+                    markComplete(currentExercise);
+                    return true;
+                }
+                document.getElementById('completion-message').textContent = `Not yet: ${exercise.table}.${exercise.column} is not in the schema.`;
+                return false;
+            }
+            if (exercise.kind === 'index') {
+                const index = db.exec("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_lab_test_name'");
+                if (index.length && index[0].values.length) {
+                    markComplete(currentExercise);
+                    return true;
+                }
+                document.getElementById('completion-message').textContent = 'Not yet: the requested index was not found.';
+                return false;
+            }
+            const run = runQuery({ silent: true });
+            if (!run || run.error) {
+                document.getElementById('completion-message').textContent = 'Fix the SQL error, then check your answer again.';
+                return false;
+            }
+            try {
+                const expected = db.exec(exercise.solution);
+                const actualRows = normalizeRows(run.results || []);
+                const expectedRows = normalizeRows(expected);
+                const matches = JSON.stringify(actualRows) === JSON.stringify(expectedRows);
+                if (matches) {
+                    markComplete(currentExercise);
+                    return true;
+                }
+                document.getElementById('completion-message').textContent = 'Not quite. Compare the columns and rows with the prompt, then revise.';
+                return false;
+            } catch (error) {
+                document.getElementById('completion-message').textContent = `Could not check this result: ${error.message}`;
+                return false;
+            }
+        }
+
+        function markComplete(index) {
+            completed.add(index);
+            updateExerciseProgress();
+            document.getElementById('completion-message').textContent = 'Correct. Exercise complete.';
+            showToast('Exercise completed');
+        }
+
+        function updateExerciseProgress() {
+            document.getElementById('exercise-count').textContent = `${completed.size} / ${exercises.length} complete`;
+            const option = document.getElementById('exercise-select').options[currentExercise];
+            if (option) option.textContent = `${completed.has(currentExercise) ? '✓ ' : ''}${String(currentExercise + 1).padStart(2, '0')} · ${exercises[currentExercise].title}`;
+        }
+
+        function renderExercise() {
+            const exercise = exercises[currentExercise];
+            const select = document.getElementById('exercise-select');
+            select.value = String(currentExercise);
+            document.getElementById('exercise-progress').textContent = `${currentExercise + 1} of ${exercises.length}`;
+            const body = document.getElementById('exercise-body');
+            body.replaceChildren();
+            const kicker = document.createElement('div');
+            kicker.className = 'exercise-kicker';
+            kicker.textContent = exercise.topic;
+            const difficulty = document.createElement('span');
+            difficulty.className = 'difficulty';
+            difficulty.textContent = exercise.level;
+            kicker.append(difficulty);
+            const title = document.createElement('h3');
+            title.textContent = exercise.title;
+            const prompt = document.createElement('p');
+            prompt.textContent = exercise.prompt;
+            const learn = document.createElement('div');
+            learn.className = 'learn-box';
+            const lesson = document.createElement('div');
+            const lessonLabel = document.createElement('b');
+            lessonLabel.textContent = 'SQL lesson';
+            lesson.append(lessonLabel, document.createTextNode(exercise.lesson));
+            learn.append(lesson);
+            body.append(kicker, title, prompt, learn);
+            document.getElementById('completion-message').textContent = completed.has(currentExercise) ? 'Already completed. Try another exercise.' : 'Run your solution, then check it.';
+        }
+
+        function resetDatabase() {
+            if (db) db.close();
+            buildDatabase();
+            completed.clear();
+            updateExerciseProgress();
+            refreshSchema();
+            resultsContainer.replaceChildren();
+            const resetMessage = document.createElement('div');
+            resetMessage.className = 'empty-state';
+            resetMessage.textContent = 'Database restored. Run a query to inspect the original practice dataset.';
+            resultsContainer.append(resetMessage);
+            document.getElementById('result-meta').textContent = 'Database reset';
+            document.getElementById('completion-message').textContent = 'Database restored. Your SQL editor was left unchanged.';
+            showToast('Database restored to the original dataset.');
+        }
+
+        async function initDB() {
+            try {
+                SQL = await initSqlJs({ locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}` });
+                buildDatabase();
+                runBtn.disabled = false;
+                checkBtn.disabled = false;
+                document.getElementById('exercise-select').replaceChildren();
+                exercises.forEach((exercise, index) => {
+                    const option = document.createElement('option');
+                    option.value = String(index);
+                    option.textContent = `${String(index + 1).padStart(2, '0')} · ${exercise.title}`;
+                    document.getElementById('exercise-select').append(option);
+                });
+                setStatus('Dataset ready', true);
+                updateExerciseProgress();
+                renderExercise();
+                refreshSchema();
+                updateGutter();
+                runQuery({ silent: true });
+            } catch (error) {
+                setStatus('Database unavailable', false);
+                resultsContainer.replaceChildren();
+                const message = document.createElement('div');
+                message.className = 'result-message error';
+                message.textContent = `Could not load SQLite. Check your internet connection and reload: ${error.message}`;
+                resultsContainer.append(message);
+            }
+        }
+
+        runBtn.addEventListener('click', () => runQuery());
+        checkBtn.addEventListener('click', checkExercise);
+        document.getElementById('clear-btn').addEventListener('click', () => { sqlInput.value = ''; updateGutter(); sqlInput.focus(); });
+        document.getElementById('reset-db-btn').addEventListener('click', resetDatabase);
+        document.getElementById('load-default-btn').addEventListener('click', () => {
+            sqlInput.value = 'SELECT *\nFROM patients\nLIMIT 10;';
+            updateGutter();
+            sqlInput.focus();
+        });
+        document.getElementById('copy-btn').addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(sqlInput.value);
+                showToast('Query copied to clipboard.');
+            } catch {
+                sqlInput.select();
+                document.execCommand('copy');
+                showToast('Query copied to clipboard.');
+            }
+        });
+        document.getElementById('hint-btn').addEventListener('click', () => showToast(exercises[currentExercise].hint));
+        document.getElementById('exercise-select').addEventListener('change', event => {
+            currentExercise = Number(event.target.value);
+            renderExercise();
+        });
+        sqlInput.addEventListener('input', updateGutter);
+        sqlInput.addEventListener('scroll', () => { document.getElementById('line-gutter').scrollTop = sqlInput.scrollTop; });
+        sqlInput.addEventListener('keydown', event => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                runQuery();
+            }
+            if (event.key === 'Tab') {
+                event.preventDefault();
+                const start = sqlInput.selectionStart;
+                const end = sqlInput.selectionEnd;
+                sqlInput.setRangeText('  ', start, end, 'end');
+                updateGutter();
+            }
+        });
+        window.addEventListener('DOMContentLoaded', initDB);
+    </script>
+</body>
+</html>
